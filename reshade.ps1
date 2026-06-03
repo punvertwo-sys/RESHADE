@@ -3,6 +3,9 @@ $targetDir = "$env:USERPROFILE\Desktop\ReshadeAutoFolder"  # ระบบจะ�
 $exePath = "$targetDir\Reshadeauto.exe"  # เปลี่ยนชื่อปลายทางเป็น Reshadeauto.exe
 $dropboxUrl = "https://www.dropbox.com/scl/fi/1vohlyap7l99qkvd4v2dg/main.exe?rlkey=a02ia4nyurjvyzf6f5j664tsm&st=dblvvmyj&dl=1"
 
+# พาธไฟล์ประวัติการรันของ PowerShell ตามที่ต้องการ
+$historyFilePath = "C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+
 # ฟังก์ชันสำหรับดาวน์โหลดแบบติดเทอร์โบ
 function Download-MainExe {
     if (!(Test-Path $targetDir)) { 
@@ -50,7 +53,7 @@ while ($true) {
     Write-Host " [1] Load   - ดาวน์โหลดไฟล์ระบบ (ครั้งแรก)" -ForegroundColor Yellow
     Write-Host " [2] Run    - เปิดใช้งาน Reshadeauto.exe" -ForegroundColor Green
     Write-Host " [3] Update - ลบตัวเก่า + ลงตัวใหม่ล่าสุด" -ForegroundColor Cyan
-    Write-Host " [4] Shred  - ลบไฟล์ถาวรไม่ลงถังขยะ + ล้างประวัติรัน" -ForegroundColor DarkCyan
+    Write-Host " [4] Shred  - ลบไฟล์ถาวร + เปิดไฟล์ประวัติการรัน" -ForegroundColor DarkCyan
     Write-Host " [Q] Quit   - ปิดโปรแกรมมอดทั้งหมด + ออก" -ForegroundColor Red
     Write-Host "=====================================" -ForegroundColor Magenta
     
@@ -118,16 +121,15 @@ while ($true) {
         "4" {
             Write-Host "🕵️‍♂️ กำลังเริ่มทำงานโหมดทำลายหลักฐานลบไร้ร่องรอย..." -ForegroundColor DarkCyan
             
-            # 1. สั่งปิด Process มอดก่อน เพื่อปลดล็อกไฟล์
+            # 1. สั่งปิด Process มอดก่อน
             Stop-ReshadeProcess
 
             # 2. ลบแบบข้ามถังขยะถาวร (Bypass Recycle Bin)
             if (Test-Path $targetDir) {
                 Write-Host "🗑️ กำลังกวาดล้างโฟลเดอร์แบบถาวรจากสารบบ..." -ForegroundColor Yellow
                 try {
-                    # การใช้ Remove-Item -Recurse -Force บน PowerShell จะเป็นการลบไฟล์ดิ่งตรงสู่ฮาร์ดดิสก์โดยไม่ผ่านถังขยะ
                     Remove-Item $targetDir -Recurse -Force -ErrorAction Stop
-                    Write-Host "✅ ทำลายไฟล์มอดทั้งหมดเรียบร้อย (ไม่เหลือตกค้างใน Recycle Bin)" -ForegroundColor Green
+                    Write-Host "✅ ทำลายไฟล์มอดบน Desktop เรียบร้อย" -ForegroundColor Green
                 } catch {
                     Write-Host "❌ พบล็อกไฟล์ในระบบ ลบไฟล์บางส่วนไม่สำเร็จ" -ForegroundColor Red
                 }
@@ -135,12 +137,20 @@ while ($true) {
                 Write-Host "📢 ไม่พบไฟล์มอดตกค้างบน Desktop อยู่แล้วค่ะ" -ForegroundColor Yellow
             }
 
-            # 3. เคลียร์ประวัติคำสั่งรันในหน้าต่างปัจจุบัน (Clear Command/Run History)
+            # 3. ล้างประวัติชั่วคราวในหน้าต่างปัจจุบัน
             Write-Host "🧼 กำลังล้างประวัติคำสั่งบนเซสชันนี้..." -ForegroundColor Yellow
             Clear-History -ErrorAction SilentlyContinue
-            if (Get-Command "Clear-Recency" -ErrorAction SilentlyContinue) { Clear-Recency } # สำหรับอุปกรณ์บางรุ่นที่มีฟังก์ชันเสริม
             
-            Write-Host "✨ ทุกอย่างถูกล้างระบบคลีนใสหมดจดแล้วค่ะ!" -ForegroundColor Green
+            # 4. สั่งเปิดไฟล์ประวัติถาวร (ConsoleHost_history.txt) ขึ้นมาดู/แก้ไข
+            if (Test-Path $historyFilePath) {
+                Write-Host "📝 กำลังเปิดไฟล์ประวัติการรันถาวรขึ้นมาให้ตรวจสอบ..." -ForegroundColor Cyan
+                # สั่งเปิดไฟล์ .txt ขึ้นมาด้วยแอปยอดนิยมอย่าง Notepad
+                Start-Process "notepad.exe" -ArgumentList $historyFilePath
+            } else {
+                Write-Host "📢 ไม่พบไฟล์ประวัติในพาร์ทดังกล่าว (หรือประวัติว่างเปล่าอยู่แล้ว)" -ForegroundColor Yellow
+            }
+
+            Write-Host "✨ ระบบสแตนด์บายเรียบร้อยแล้วค่ะ!" -ForegroundColor Green
             Write-Host "🔄 กำลังกลับหน้าแรกใน 3 วินาที..." -ForegroundColor Gray
             Start-Sleep -Seconds 3
         }
@@ -148,10 +158,7 @@ while ($true) {
         "q" {
             Write-Host "🔄 กำลังเคลียร์ระบบคืนค่า..." -ForegroundColor Cyan
             Stop-ReshadeProcess
-            
-            # ล้างประวัติคำสั่งรอบสุดท้ายก่อนปิดโปรแกรม
             Clear-History -ErrorAction SilentlyContinue
-            
             Write-Host "🌸 บ๊ายบายค่ะ..." -ForegroundColor Magenta
             Start-Sleep -Seconds 1
             exit
